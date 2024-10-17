@@ -101,8 +101,3 @@ saveRDS(cnv_data, "cnv_data.rds")
 cnv_data <- read_rds("cnv_data.rds")
 
 mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-
-
-
-
-
