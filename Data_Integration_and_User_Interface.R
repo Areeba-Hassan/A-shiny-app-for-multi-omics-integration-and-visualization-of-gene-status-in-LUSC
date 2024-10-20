@@ -11,6 +11,7 @@ library(IlluminaHumanMethylation450kanno.ilmn12.hg19) #for annotation of methyla
 library(sesame) #to create summarizedexperiment dataset of methylation data
 library(sesameData)
 library(GenomicRanges) #to get gene coordinates for CNV analysis
+library(plotly) #to make plots interactive
 
 
 #function to validate input and map it to ensbl IDs
@@ -138,7 +139,8 @@ meth_status <- function(input, mval, sample_info, annotation){
                 alpha = 0.4,
                 position = position_jitter(0.1),
                 color = "black",
-                size = 0.5) +
+                size = 0.5,
+                stroke =0) +
     facet_wrap(~ CpG_Probe, scales = "free") +
     labs(title = paste("Methylation status for", input, "associated Probes by Sample Type"),
          x = "Sample Type", y = "M-value") +
@@ -237,7 +239,7 @@ library(shinythemes)
 
 ui <- fluidPage(
   #set theme
-  theme = shinytheme("darkly"),
+  theme = shinytheme("sandstone"),
   
   #title panel
   titlePanel("Multi-omics integration app for gene evaluation in LUSC"),
@@ -254,7 +256,6 @@ ui <- fluidPage(
       selectInput("analysis_type", "Select Analysis Type:",
                   choices = c(
                     "Expression Analysis",
-                    "Survival Analysis",
                     "Methylation Status",
                     "Copy Number Variation"
                   ),
@@ -265,7 +266,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Results",
-                 plotOutput("resultplot"),
+                 plotlyOutput("resultplot"),
                  verbatimTextOutput("resultText"))
       ),
       
@@ -290,8 +291,8 @@ server <- function(input, output, session) {
       stats <- get_gene(input$gene_name, dds, res)
       expression_result <- get_expression_data(input$gene_name, dds, count)
       
-      output$resultplot <- renderPlot({
-        ggplot(expression_result,
+      output$resultplot <- renderPlotly({
+       p <- ggplot(expression_result,
                aes(x = sample_type,
                    y = expression,
                    fill = sample_type)) +
@@ -299,28 +300,28 @@ server <- function(input, output, session) {
           geom_jitter(shape = 16,
                       position = position_jitter(0.1),
                       color = "black",
-                      size = 1) +
+                      size = 1,
+                      stroke = 0) +
           labs(title = paste("Expression of", input$gene_name, "in Normal vs Tumor samples"),
                x = "Sample Type",
                y = "Normalized Counts") +
           theme_minimal() +
           theme(legend.position = "none")
+       
+       ggplotly(p)
       })
       output$resultText <- renderPrint({stats})
       
-    } else if (input$analysis_type == "Survival Analysis") { #if surv analysis, then perform survival analysis and display kap-mier plot
-      splot <- survival_analysis(input$gene_name, clinical_data, dds, count)
-      output$resultplot <- renderPlot(splot)
-      output$resultText <- renderText({"Survival Analysis Complete!"})
-      
     } else if (input$analysis_type == "Methylation Status") { #if meth status, display mvalue plots
       meth_res <- meth_status(input$gene_name, mval, sample_info, annotation)
-      output$resultplot <- renderPlot(meth_res)
-      output$resultText <- renderText({"Above is represented the methylation status of various probes associated with gene of interest!"})
+      output$resultplot <- renderPlotly({
+        ggplotly(meth_res)})
+      output$resultText <- renderText({"Above is the methylation status of various probes associated with gene of interest!"})
       
     } else if (input$analysis_type == "Copy Number Variation") { #if CNV, then display dotplots
       cnv_res <- cnv_analysis(input$gene_name, dds, cnv_data, mart)
-      output$resultplot <- renderPlot(cnv_res)
+      output$resultplot <- renderPlotly({
+        ggplotly(cnv_res)})
       output$resultText <- renderText({"Copy Number Variations displayed!"})
     }
   })
